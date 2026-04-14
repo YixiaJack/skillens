@@ -213,6 +213,29 @@ def config_show() -> None:
 _KNOWN_COMMANDS = {"evaluate", "analyze", "topic", "mcp", "profile", "config", "--help", "-h"}
 
 
+def _force_utf8_streams() -> None:
+    """Force stdout/stderr to UTF-8 so Rich emoji doesn't crash on Windows
+    consoles with legacy codepages (cp936/GBK on zh-CN, cp1252 on en-US cmd,
+    etc.). PowerShell 7+ already defaults to UTF-8, but Git Bash, cmd.exe,
+    and older consoles bind Python's streams to the system ANSI codepage
+    at interpreter start — which then can't encode '🔍', '⚡', box-drawing
+    characters, etc., and crashes with UnicodeEncodeError mid-render.
+
+    `TextIOWrapper.reconfigure` is available on Python 3.7+ and is the
+    documented fix. errors='replace' means a truly unencodable byte becomes
+    '?' instead of crashing — we never want a pretty-print to kill the CLI.
+    """
+    import sys
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
 def main() -> None:
     """Entry point for the CLI.
 
@@ -220,6 +243,8 @@ def main() -> None:
     so users can type `skillens "https://..."` directly.
     """
     import sys
+
+    _force_utf8_streams()
 
     if len(sys.argv) >= 2:
         first = sys.argv[1]

@@ -55,6 +55,37 @@ def test_main_injects_evaluate_before_url(monkeypatch):
     assert captured["argv"][2] == "https://www.coursera.org/learn/machine-learning"
 
 
+def test_main_reconfigures_streams_to_utf8(monkeypatch):
+    """main() must force stdout/stderr to UTF-8 before Typer runs.
+
+    Protects against 0.1.1 regression where Windows consoles with legacy
+    codepages (cp936 / cp1252) crashed with UnicodeEncodeError when Rich
+    tried to render the emoji in the help text or assessment panel.
+    """
+    import sys
+
+    from skillens import cli
+
+    calls: list[dict] = []
+
+    class FakeStream:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def reconfigure(self, *, encoding: str, errors: str) -> None:
+            calls.append({"stream": self.name, "encoding": encoding, "errors": errors})
+
+    monkeypatch.setattr(sys, "stdout", FakeStream("stdout"))
+    monkeypatch.setattr(sys, "stderr", FakeStream("stderr"))
+    monkeypatch.setattr(cli, "app", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["skillens", "--help"])
+
+    cli.main()
+
+    assert {"stream": "stdout", "encoding": "utf-8", "errors": "replace"} in calls
+    assert {"stream": "stderr", "encoding": "utf-8", "errors": "replace"} in calls
+
+
 def test_main_does_not_inject_for_known_command(monkeypatch):
     """Subcommands like `profile show` must pass through untouched."""
     from skillens import cli
