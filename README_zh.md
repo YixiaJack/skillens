@@ -19,6 +19,8 @@ skillens "https://www.coursera.org/learn/machine-learning"
 
 [English](README.md) · **中文**
 
+<img src="docs/demo.png" alt="SkiLens 评估 Coursera 机器学习课程（PowerShell 实拍）" width="820"/>
+
 </div>
 
 ---
