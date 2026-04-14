@@ -6,8 +6,8 @@
 
 One command. Instant verdict: **LEARN · SKIP · CONSIDER ALTERNATIVES**.
 
-[![PyPI](https://img.shields.io/pypi/v/skillens?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/skillens/)
-[![Python](https://img.shields.io/pypi/pyversions/skillens?logo=python&logoColor=white)](https://pypi.org/project/skillens/)
+[![PyPI](https://img.shields.io/pypi/v/skillens.svg?color=blue&logo=pypi&logoColor=white&cacheSeconds=3600)](https://pypi.org/project/skillens/)
+[![Python](https://img.shields.io/pypi/pyversions/skillens.svg?logo=python&logoColor=white&cacheSeconds=3600)](https://pypi.org/project/skillens/)
 [![License](https://img.shields.io/github/license/YixiaJack/skillens)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-95%20passed-brightgreen)](tests/)
 [![Stars](https://img.shields.io/github/stars/YixiaJack/skillens?style=social)](https://github.com/YixiaJack/skillens/stargazers)

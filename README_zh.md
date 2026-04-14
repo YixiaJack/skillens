@@ -6,8 +6,8 @@
 
 一条命令，立刻给出结论：**学 · 不学 · 考虑更好的替代**。
 
-[![PyPI](https://img.shields.io/pypi/v/skillens?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/skillens/)
-[![Python](https://img.shields.io/pypi/pyversions/skillens?logo=python&logoColor=white)](https://pypi.org/project/skillens/)
+[![PyPI](https://img.shields.io/pypi/v/skillens.svg?color=blue&logo=pypi&logoColor=white&cacheSeconds=3600)](https://pypi.org/project/skillens/)
+[![Python](https://img.shields.io/pypi/pyversions/skillens.svg?logo=python&logoColor=white&cacheSeconds=3600)](https://pypi.org/project/skillens/)
 [![License](https://img.shields.io/github/license/YixiaJack/skillens)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-67%20passed-brightgreen)](tests/)
 [![Stars](https://img.shields.io/github/stars/YixiaJack/skillens?style=social)](https://github.com/YixiaJack/skillens/stargazers)
