@@ -1,0 +1,100 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "skillens"
+version = "0.1.0"
+description = "AI-powered CLI tool that evaluates whether a learning resource is worth your time"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Yixia Yu", email = "yixia.yu@example.com" },
+]
+keywords = [
+    "learning", "education", "ai", "cli", "skill-assessment",
+    "career", "course-review", "productivity"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+    "Topic :: Utilities",
+]
+
+dependencies = [
+    "typer[all]>=0.9.0",
+    "rich>=13.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.0",
+    "beautifulsoup4>=4.12",
+]
+
+[project.optional-dependencies]
+llm = [
+    "openai>=1.0",
+    "anthropic>=0.20",
+]
+pdf = [
+    "pymupdf>=1.23",
+]
+youtube = [
+    "yt-dlp>=2024.0",
+]
+discover = [
+    "duckduckgo-search>=6.0",
+]
+mcp = [
+    "mcp>=1.2",
+]
+all = [
+    "skillens[llm,pdf,youtube,discover,mcp]",
+]
+dev = [
+    "skillens[all]",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "respx>=0.21",  # httpx mocking
+]
+
+[project.scripts]
+skillens = "skillens.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/YixiaJack/skillens"
+Documentation = "https://github.com/YixiaJack/skillens#readme"
+Repository = "https://github.com/YixiaJack/skillens"
+Issues = "https://github.com/YixiaJack/skillens/issues"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["skillens"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"skillens/data/skill_demand.json" = "skillens/data/skill_demand.json"
