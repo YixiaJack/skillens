@@ -16,3 +16,4 @@ venv/
 htmlcov/
 *.db
 pytest.log
+dist/

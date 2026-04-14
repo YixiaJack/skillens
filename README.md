@@ -17,6 +17,10 @@ pip install skillens
 skillens "https://www.coursera.org/learn/machine-learning"
 ```
 
+**English** · [中文](README_zh.md)
+
+<img src="docs/demo.svg" alt="SkiLens demo output" width="780"/>
+
 </div>
 
 ---
