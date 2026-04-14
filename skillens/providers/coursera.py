@@ -16,6 +16,21 @@ from typing import Any
 import httpx
 from bs4 import BeautifulSoup
 
+# ISO 8601 duration: PT60H, PT1H30M, PT90M, P7D, etc. We only care about
+# the hours/minutes/days for a course time estimate.
+_ISO_DURATION_RE = re.compile(
+    r"^P(?:(?P<days>\d+(?:\.\d+)?)D)?"
+    r"(?:T"
+    r"(?:(?P<hours>\d+(?:\.\d+)?)H)?"
+    r"(?:(?P<minutes>\d+(?:\.\d+)?)M)?"
+    r"(?:(?P<seconds>\d+(?:\.\d+)?)S)?"
+    r")?$"
+)
+# "1,234,567 already enrolled" / "1.2M enrolled" — any number before "enroll"
+_ENROLL_RE = re.compile(
+    r"([\d,]+|\d+(?:\.\d+)?[KkMm])\s+(?:already\s+)?enroll", re.IGNORECASE
+)
+
 from skillens.core.models import ResourceMeta, SourceType
 from skillens.providers.base import BaseProvider, ProviderError
 
@@ -110,20 +125,48 @@ class CourseraProvider(BaseProvider):
                 syllabus.append(text)
         syllabus = syllabus[:20]
 
-        # Topics: Coursera shows a "Skills you'll gain" section; fall back to keywords
+        # Topics: try JSON-LD keywords / about / teaches first, then fall back
+        # to the "Skills you'll gain" HTML section which Coursera always renders.
         topics: list[str] = []
-        if course and (kw := course.get("keywords")):
-            if isinstance(kw, str):
-                topics = [t.strip() for t in kw.split(",") if t.strip()]
-            elif isinstance(kw, list):
-                topics = [str(t) for t in kw]
-        topics = topics[:10]
+        if course:
+            for field in ("keywords", "about", "teaches", "educationalUse"):
+                value = course.get(field)
+                if not value:
+                    continue
+                if isinstance(value, str):
+                    topics.extend(
+                        [t.strip() for t in value.split(",") if t.strip()]
+                    )
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, str):
+                            topics.append(item)
+                        elif isinstance(item, dict) and item.get("name"):
+                            topics.append(str(item["name"]))
+        if not topics:
+            topics = _extract_skills_section(soup)
+        # Dedupe preserving order, cap at 10
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for t in topics:
+            key = t.lower()
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(t)
+        topics = deduped[:10]
 
         # Dates
         published = _parse_iso(course.get("datePublished")) if course else None
         updated = _parse_iso(course.get("dateModified")) if course else None
 
-        # Enrollment — Coursera sometimes has it as numberOfStudents or in description text
+        # Duration: JSON-LD timeRequired is ISO 8601 (e.g. "PT60H")
+        duration_hours: float | None = None
+        if course:
+            tr = course.get("timeRequired") or course.get("duration")
+            if isinstance(tr, str):
+                duration_hours = _parse_iso_duration_hours(tr)
+
+        # Enrollment — JSON-LD numberOfStudents first, then rendered HTML text
         enrollment_count: int | None = None
         if course:
             for key in ("numberOfStudents", "totalStudents"):
@@ -133,6 +176,8 @@ class CourseraProvider(BaseProvider):
                         break
                     except (TypeError, ValueError):
                         pass
+        if enrollment_count is None:
+            enrollment_count = _extract_enrollment_count(soup)
 
         return ResourceMeta(
             title=str(title).strip()[:300],
@@ -148,10 +193,79 @@ class CourseraProvider(BaseProvider):
             enrollment_count=enrollment_count,
             published_date=published,
             last_updated=updated,
+            duration_hours=duration_hours,
             author=author[:200],
             institution=institution[:200],
             content_sample=description[:2000],
         )
+
+
+def _extract_skills_section(soup: BeautifulSoup) -> list[str]:
+    """Find the 'Skills you'll gain' section and return its items.
+
+    Coursera's markup changes often, so we probe several locations:
+    the heading text, aria-labels, data-testid attrs. Best-effort.
+    """
+    skills: list[str] = []
+    for heading in soup.find_all(["h2", "h3", "h4"]):
+        text = heading.get_text(" ", strip=True).lower()
+        if "skills you" in text or "what you'll learn" in text:
+            container = heading.parent
+            if container is None:
+                continue
+            for item in container.find_all(["li", "span", "a"]):
+                t = item.get_text(" ", strip=True)
+                if t and 2 <= len(t) <= 60 and t.lower() not in text:
+                    skills.append(t)
+            if skills:
+                return skills[:15]
+    # aria-labelled fallback
+    for node in soup.find_all(attrs={"aria-label": True}):
+        label = str(node.get("aria-label", "")).lower()
+        if "skills" in label:
+            for item in node.find_all(["li", "span"]):
+                t = item.get_text(" ", strip=True)
+                if t and 2 <= len(t) <= 60:
+                    skills.append(t)
+            if skills:
+                return skills[:15]
+    return []
+
+
+def _extract_enrollment_count(soup: BeautifulSoup) -> int | None:
+    """Find the '1,234,567 already enrolled' text anywhere on the page."""
+    text = soup.get_text(" ", strip=True)
+    match = _ENROLL_RE.search(text)
+    if not match:
+        return None
+    raw = match.group(1)
+    try:
+        if raw.lower().endswith("m"):
+            return int(float(raw[:-1]) * 1_000_000)
+        if raw.lower().endswith("k"):
+            return int(float(raw[:-1]) * 1_000)
+        return int(raw.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _parse_iso_duration_hours(value: str) -> float | None:
+    """Parse ISO 8601 duration and return total hours.
+
+    Supports H/M/D components. `PT60H` → 60.0, `PT1H30M` → 1.5,
+    `P7D` → 168.0. Unknown format returns None.
+    """
+    if not value:
+        return None
+    m = _ISO_DURATION_RE.match(value.strip())
+    if not m:
+        return None
+    days = float(m.group("days") or 0)
+    hours = float(m.group("hours") or 0)
+    minutes = float(m.group("minutes") or 0)
+    seconds = float(m.group("seconds") or 0)
+    total_hours = days * 24 + hours + minutes / 60 + seconds / 3600
+    return round(total_hours, 2) if total_hours > 0 else None
 
 
 def _find_course_jsonld(soup: BeautifulSoup) -> dict[str, Any] | None:

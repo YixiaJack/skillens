@@ -39,13 +39,17 @@ class TestQuickScorer:
         assert result.freshness <= 40
 
     def test_foundational_topic_has_long_half_life(self):
-        meta = self._make_meta(topics=["algorithm", "data structure"])
+        meta = self._make_meta(topics=["algorithms", "data structures"])
         result = score_resource(meta, deep=False)
-        assert "10" in result.skill_half_life
+        # foundational topics have multi-decade halflives in the dataset
+        assert "year" in result.skill_half_life
+        # and it must be a "many years" label, not "1 year"
+        assert result.skill_half_life not in ("~1 year",)
 
     def test_fast_moving_topic_has_short_half_life(self):
         meta = self._make_meta(topics=["langchain", "prompt engineering"])
         result = score_resource(meta, deep=False)
+        # langchain has a ~180d halflife so we expect months, not years
         assert "month" in result.skill_half_life.lower()
 
     def test_high_scores_produce_learn_verdict(self):

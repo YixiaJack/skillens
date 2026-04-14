@@ -24,12 +24,17 @@ def _score_color(score: int) -> str:
     return "red"
 
 
-def _score_bar(score: int, width: int = 10) -> str:
-    """Render a score as a colored bar."""
+def _score_bar(score: int, width: int = 10, confidence: float = 1.0) -> str:
+    """Render a score as a colored bar with an optional low-confidence marker.
+
+    When confidence < 0.35 we append a dim '⋯' to tell the user this
+    dimension's score is essentially a guess.
+    """
     filled = round(score / 100 * width)
     empty = width - filled
     color = _score_color(score)
-    return f"[{color}]{'█' * filled}[/{color}][dim]{'░' * empty}[/dim]  {score}"
+    marker = "  [dim]⋯[/dim]" if confidence < 0.35 else ""
+    return f"[{color}]{'█' * filled}[/{color}][dim]{'░' * empty}[/dim]  {score}{marker}"
 
 
 def _verdict_style(verdict: Verdict) -> str:
@@ -71,16 +76,43 @@ def print_report(assessment: Assessment) -> None:
         lines.append(f"[dim]{subtitle}[/dim]")
     lines.append("")
 
-    # Score bars
-    lines.append(f"  {t('label.market_demand'):<17}{_score_bar(a.market_demand)}")
+    # Low-confidence banner — emitted BEFORE the score bars so users see
+    # the warning before they read the (potentially meaningless) numbers.
+    if a.overall_confidence < 0.4:
+        lines.append(
+            "  [yellow on red] ⚠  LOW CONFIDENCE [/yellow on red] "
+            "[dim]insufficient metadata — scores below are best-effort[/dim]"
+        )
+        lines.append("")
+
+    def _conf(dim: str) -> float:
+        return a.confidences.get(dim, 1.0)
+
+    # Score bars (per-dimension confidence passed in so low-conf bars get ⋯ marker)
+    lines.append(
+        f"  {t('label.market_demand'):<17}"
+        f"{_score_bar(a.market_demand, confidence=_conf('market_demand'))}"
+    )
     lines.append(f"  {t('label.half_life'):<17}[cyan]{a.skill_half_life}[/cyan]")
-    lines.append(f"  {t('label.info_density'):<17}{_score_bar(a.info_density)}")
-    lines.append(f"  {t('label.freshness'):<17}{_score_bar(a.freshness)}")
-    lines.append(f"  {t('label.effort'):<17}{_score_bar(a.effort_vs_return)}")
+    lines.append(
+        f"  {t('label.info_density'):<17}"
+        f"{_score_bar(a.info_density, confidence=_conf('info_density'))}"
+    )
+    lines.append(
+        f"  {t('label.freshness'):<17}"
+        f"{_score_bar(a.freshness, confidence=_conf('freshness'))}"
+    )
+    lines.append(
+        f"  {t('label.effort'):<17}"
+        f"{_score_bar(a.effort_vs_return, confidence=_conf('effort_vs_return'))}"
+    )
     if a.profile_match is not None:
         lines.append(f"  {t('label.profile_match'):<17}{_score_bar(a.profile_match)}")
     lines.append("")
-    lines.append(f"  [bold]{t('label.overall'):<17}{_score_bar(a.overall_score)}[/bold]")
+    lines.append(
+        f"  [bold]{t('label.overall'):<17}"
+        f"{_score_bar(a.overall_score, confidence=a.overall_confidence)}[/bold]"
+    )
     lines.append("")
 
     # Verdict

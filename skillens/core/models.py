@@ -81,8 +81,17 @@ class Assessment(BaseModel):
     effort_vs_return: int = Field(ge=0, le=100)
     profile_match: int | None = None
 
+    # Per-dimension confidence (0.0 = pure default, 1.0 = hard data).
+    # Maps dimension name to confidence. Dimensions missing from the dict
+    # are treated as 1.0 (full confidence) for backwards compatibility.
+    confidences: dict[str, float] = Field(default_factory=dict)
+    # Per-dimension provenance string: where the score came from
+    # ("dataset", "enrollment", "syllabus", "default", ...). For debugging.
+    sources: dict[str, str] = Field(default_factory=dict)
+
     # Overall
     overall_score: int = Field(ge=0, le=100)
+    overall_confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     verdict: Verdict
     verdict_reason: str
 

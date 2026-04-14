@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skillens"
-version = "0.1.2"
+version = "0.2.0"
 description = "AI-powered CLI tool that evaluates whether a learning resource is worth your time"
 readme = "README.md"
 license = "MIT"

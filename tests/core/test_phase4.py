@@ -2,7 +2,7 @@
 
 import pytest
 
-from skillens.core.dataset import _load, demand_for
+from skillens.core.dataset import _load, demand_for, halflife_for
 from skillens.core.models import ResourceMeta, SourceType
 from skillens.core.scorer import score_resource
 from skillens.display.i18n import resolve_lang, set_lang, t
@@ -14,16 +14,36 @@ class TestSkillDataset:
     def test_dataset_loads(self):
         data = _load()
         assert "llm" in data
-        assert data["llm"] >= 90
+        assert data["llm"].demand >= 90
+        assert data["llm"].halflife_days > 0
 
     def test_demand_for_matches_substring(self):
         assert demand_for(["reinforcement learning"]) == 75
 
     def test_demand_for_title_fallback(self):
-        assert demand_for([], title="Intro to PyTorch") == 88
+        # pytorch is in the dataset with demand=90 in the 0.2.0 refresh
+        score = demand_for([], title="Intro to PyTorch")
+        assert score is not None and score >= 85
 
     def test_demand_for_unknown(self):
         assert demand_for(["nonexistent-skill-xyz"]) is None
+
+    def test_word_boundary_matching_rejects_substring_collisions(self):
+        # "go" (golang) must NOT match inside "algorithm" / "bingo" /
+        # "argo" / etc. This was a real 0.1.x bug.
+        result = demand_for(["algorithm"])
+        assert result != 82  # 82 was golang's demand — never should win here
+
+    def test_halflife_picks_shortest(self):
+        # A course bundling stable fundamentals (algorithms ~20y) with one
+        # fast-moving tool (langchain ~180d) decays at the speed of the
+        # fastest piece — the LangChain part is the bottleneck.
+        hl = halflife_for(["algorithms", "langchain"])
+        assert hl <= 200
+
+    def test_halflife_default_when_unknown(self):
+        hl = halflife_for(["nonexistent-skill-xyz"])
+        assert hl > 0  # always returns a number, never None
 
     def test_scorer_uses_dataset_for_hot_skill(self):
         meta = ResourceMeta(
